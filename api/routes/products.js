@@ -2,6 +2,35 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Product = require('../models/product');
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, './uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, new Date().toISOString().replace(/:/g, '-') + file.originalname);
+    }
+})
+
+const fileFilter = (req, file, cb) => {
+    // REJECT FILE
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+        cb(null, true);
+    }
+    else {
+        cb(null, false);
+    }
+
+}
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 1024 * 1024 * 5
+    },
+    fileFilter: fileFilter
+});
 
 // GET ALL PRODUCTS
 router.get('/', (req, res, next) => {
@@ -35,8 +64,9 @@ router.get('/', (req, res, next) => {
 
 });
 // POST NEW PRODUCT
-router.post('/', (req, res, next) => {
+router.post('/', upload.single('productImage'), (req, res, next) => {
     // DEFINITION OF PRODUCT
+    console.log(req.file);
     const product = new Product({
         _id: new mongoose.Types.ObjectId(),
         name: req.body.name,
@@ -104,12 +134,12 @@ router.patch('/:productId', (req, res, next) => {
     const id = req.params.productId;
     const updateOps = {};
 
-    for(const ops of req.body){
+    for (const ops of req.body) {
         updateOps[ops.propName] = ops.value;
     }
 
     // ESTÁ A ACTUALIZAR DADOS NA BD
-    Product.update({_id: id}, {$set: updateOps})
+    Product.update({ _id: id }, { $set: updateOps })
         .exec()
         .then(result => {
             res.status(200).json({
@@ -133,13 +163,13 @@ router.delete('/:productId', (req, res, next) => {
     const id = req.params.productId;
 
     Product.remove({
-            _id: id
-        })
+        _id: id
+    })
         .exec()
         .then(result => {
             res.status(200).json({
                 message: 'Product deleted',
-                request:{
+                request: {
                     type: 'POST',
                     url: 'http://localhost:3000/products/',
                     data: {
